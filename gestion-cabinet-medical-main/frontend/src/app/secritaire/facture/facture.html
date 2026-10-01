@@ -1,0 +1,555 @@
+<div class="facture-container">
+  <!-- Background Animé -->
+  <div class="dashboard-background">
+    <div class="floating-elements">
+      <div class="floating-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+      <div class="floating-icon"><i class="fas fa-receipt"></i></div>
+      <div class="floating-icon"><i class="fas fa-credit-card"></i></div>
+      <div class="floating-icon"><i class="fas fa-calculator"></i></div>
+      <div class="floating-icon"><i class="fas fa-chart-bar"></i></div>
+      <div class="floating-icon"><i class="fas fa-money-bill-wave"></i></div>
+    </div>
+    <div class="pulse-effect"></div>
+  </div>
+
+  <div class="dashboard-content">
+    <!-- Header Secrétaire -->
+    
+
+    <!-- Section de Bienvenue -->
+    <section class="welcome-section">
+      <div class="welcome-content">
+        <h1>Gestion des Factures 💰</h1>
+        <p>Gérez les factures, les paiements et la comptabilité</p>
+        <div class="current-time">
+          <i class="fas fa-clock"></i>
+          {{ currentDate | date:'HH:mm' }} • {{ currentDate | date:'EEEE d MMMM yyyy' }}
+        </div>
+      </div>
+      <div class="quick-actions-header">
+        <div class="search-container">
+          <i class="fas fa-search"></i>
+          <input 
+            type="text" 
+            placeholder="Rechercher une facture..." 
+            [(ngModel)]="searchTerm"
+            (input)="onSearch()"
+            class="search-input">
+        </div>
+        <button class="action-btn primary" (click)="showAddForm = true; isEditing = false; resetForm()">
+          <i class="fas fa-plus"></i>
+          Nouvelle Facture
+        </button>
+        <button class="action-btn secondary" (click)="exporterFactures()">
+          <i class="fas fa-file-export"></i>
+          Exporter
+        </button>
+      </div>
+    </section>
+
+    <!-- Statistiques Financières -->
+    <section class="stats-section">
+      <div class="stats-grid">
+        <div class="stat-card total-revenue">
+          <div class="stat-icon">
+            <i class="fas fa-money-bill-wave"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ stats.chiffreAffaireTotal | currency:'MAD':'symbol':'1.0-0' }}</div>
+            <div class="stat-label">Chiffre d'Affaire</div>
+            <div class="stat-trend positive">
+              <i class="fas fa-arrow-up"></i>
+              {{ stats.evolutionCA }}% ce mois
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card pending-invoices">
+          <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ stats.facturesEnAttente }}</div>
+            <div class="stat-label">Factures en Attente</div>
+            <div class="stat-trend">
+              <i class="fas fa-exclamation-circle"></i>
+              {{ stats.montantEnAttente | currency:'MAD':'symbol':'1.0-0' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card paid-invoices">
+          <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ stats.facturesPayees }}</div>
+            <div class="stat-label">Factures Payées</div>
+            <div class="stat-trend positive">
+              <i class="fas fa-chart-line"></i>
+              {{ stats.tauxPaiement }}% de taux
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-card average-amount">
+          <div class="stat-icon">
+            <i class="fas fa-calculator"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ stats.montantMoyen | currency:'MAD':'symbol':'1.0-0' }}</div>
+            <div class="stat-label">Montant Moyen</div>
+            <div class="stat-trend">
+              <i class="fas fa-balance-scale"></i>
+              Stable
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Formulaire d'Ajout/Modification de Facture -->
+    <section class="add-facture-section" *ngIf="showAddForm">
+      <div class="section-header">
+        <h3>
+          <i class="fas" [class.fa-plus]="!isEditing" [class.fa-edit]="isEditing"></i>
+          {{ isEditing ? 'Modifier la Facture' : 'Créer une Nouvelle Facture' }}
+        </h3>
+        <button class="close-btn" (click)="showAddForm = false; resetForm()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <form class="facture-form" #factureForm="ngForm" (ngSubmit)="onSubmit()">
+        <div class="form-grid">
+          <!-- Sélection du Patient -->
+          <div class="form-group">
+            <label for="patient"><i class="fas fa-user"></i> Patient *</label>
+            <select 
+              id="patient" 
+              name="patient" 
+              [(ngModel)]="newFacture.patientId" 
+              required
+              #patient="ngModel"
+              (change)="onPatientChange()">
+              <option value="">Sélectionnez un patient</option>
+              <option *ngFor="let patient of patients" [value]="patient.id">
+                {{ patient.prenom }} {{ patient.nom }} - {{ patient.cin }}
+              </option>
+            </select>
+            <div class="error-message" *ngIf="patient.invalid && (patient.dirty || patient.touched)">
+              La sélection d'un patient est requise
+            </div>
+          </div>
+
+          <!-- Informations du Patient Sélectionné -->
+          <div class="patient-info-card" *ngIf="selectedPatient">
+            <div class="patient-header">
+              <div class="patient-avatar">
+                {{ selectedPatient.prenom.charAt(0) }}{{ selectedPatient.nom.charAt(0) }}
+              </div>
+              <div class="patient-details">
+                <h4>{{ selectedPatient.prenom }} {{ selectedPatient.nom }}</h4>
+                <p><i class="fas fa-id-card"></i> {{ selectedPatient.cin }}</p>
+                <p><i class="fas fa-phone"></i> {{ selectedPatient.numTel }}</p>
+                <p><i class="fas fa-shield-alt"></i> {{ selectedPatient.typeMutuelle || 'Aucune' }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Date de la Facture -->
+          <div class="form-group">
+            <label for="dateFacture"><i class="fas fa-calendar"></i> Date Facture *</label>
+            <input 
+              type="date" 
+              id="dateFacture" 
+              name="dateFacture" 
+              [(ngModel)]="newFacture.dateFacture" 
+              required
+              #dateFacture="ngModel">
+            <div class="error-message" *ngIf="dateFacture.invalid && (dateFacture.dirty || dateFacture.touched)">
+              La date est requise
+            </div>
+          </div>
+
+          <!-- Date d'Échéance -->
+          <div class="form-group">
+            <label for="dateEcheance"><i class="fas fa-calendar-times"></i> Date d'Échéance</label>
+            <input 
+              type="date" 
+              id="dateEcheance" 
+              name="dateEcheance" 
+              [(ngModel)]="newFacture.dateEcheance">
+          </div>
+
+          <!-- Statut -->
+          <div class="form-group">
+            <label for="statut"><i class="fas fa-circle"></i> Statut *</label>
+            <select 
+              id="statut" 
+              name="statut" 
+              [(ngModel)]="newFacture.statut" 
+              required
+              #statut="ngModel">
+              <option value="">Sélectionnez le statut</option>
+              <option value="brouillon">Brouillon</option>
+              <option value="envoyee">Envoyée</option>
+              <option value="partiellement-payee">Partiellement Payée</option>
+              <option value="payee">Payée</option>
+              <option value="annulee">Annulée</option>
+            </select>
+            <div class="error-message" *ngIf="statut.invalid && (statut.dirty || statut.touched)">
+              Le statut est requis
+            </div>
+          </div>
+
+          <!-- Mode de Paiement -->
+          <div class="form-group">
+            <label for="modePaiement"><i class="fas fa-credit-card"></i> Mode de Paiement</label>
+            <select 
+              id="modePaiement" 
+              name="modePaiement" 
+              [(ngModel)]="newFacture.modePaiement">
+              <option value="">Non spécifié</option>
+              <option value="especes">Espèces</option>
+              <option value="carte">Carte Bancaire</option>
+              <option value="cheque">Chèque</option>
+              <option value="virement">Virement</option>
+              <option value="mutuelle">Mutuelle</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section des Prestations -->
+        <div class="prestations-section">
+          <div class="section-header">
+            <h4><i class="fas fa-list"></i> Prestations</h4>
+            <button type="button" class="btn-small primary" (click)="ajouterPrestation()">
+              <i class="fas fa-plus"></i>
+              Ajouter une Prestation
+            </button>
+          </div>
+
+          <div class="prestations-list">
+            <div class="prestation-item" *ngFor="let prestation of newFacture.prestations; let i = index">
+              <div class="prestation-content">
+                <div class="form-group">
+                  <label>Description</label>
+                  <input 
+                    type="text" 
+                    [(ngModel)]="prestation.description" 
+                    name="description{{i}}"
+                    placeholder="Description de la prestation..."
+                    required>
+                </div>
+                <div class="form-group">
+                  <label>Quantité</label>
+                  <input 
+                    type="number" 
+                    [(ngModel)]="prestation.quantite" 
+                    name="quantite{{i}}"
+                    min="1"
+                    (change)="calculerTotal()"
+                    required>
+                </div>
+                <div class="form-group">
+                  <label>Prix Unitaire (MAD)</label>
+                  <input 
+                    type="number" 
+                    [(ngModel)]="prestation.prixUnitaire" 
+                    name="prixUnitaire{{i}}"
+                    min="0"
+                    step="0.01"
+                    (change)="calculerTotal()"
+                    required>
+                </div>
+                <div class="form-group">
+                  <label>Total (MAD)</label>
+                  <input 
+                    type="text" 
+                    [value]="prestation.quantite * prestation.prixUnitaire | currency:'MAD':'symbol':'1.2-2'"
+                    readonly
+                    class="readonly-field">
+                </div>
+              </div>
+              <button type="button" class="btn-remove" (click)="supprimerPrestation(i)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Totaux -->
+        <div class="totals-section">
+          <div class="total-row">
+            <span>Sous-total:</span>
+            <span>{{ calculerSousTotal() | currency:'MAD':'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="total-row">
+            <span>Remise:</span>
+            <div class="discount-input">
+              <input 
+                type="number" 
+                [(ngModel)]="newFacture.remise" 
+                name="remise"
+                min="0"
+                max="100"
+                (change)="calculerTotal()"
+                placeholder="0">
+              <span>%</span>
+            </div>
+          </div>
+          <div class="total-row">
+            <span>Montant Remise:</span>
+            <span>{{ calculerMontantRemise() | currency:'MAD':'symbol':'1.2-2' }}</span>
+          </div>
+          <div class="total-row total-final">
+            <span>Total TTC:</span>
+            <span class="total-amount">{{ newFacture.montantTotal | currency:'MAD':'symbol':'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group full-width">
+          <label for="notes"><i class="fas fa-sticky-note"></i> Notes</label>
+          <textarea 
+            id="notes" 
+            name="notes" 
+            [(ngModel)]="newFacture.notes"
+            placeholder="Notes supplémentaires..."
+            rows="3"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" (click)="onCancel()">
+            <i class="fas fa-times"></i>
+            Annuler
+          </button>
+          <button type="submit" class="btn-submit" [disabled]="!factureForm.valid || newFacture.prestations.length === 0">
+            <i class="fas" [class.fa-save]="isEditing" [class.fa-file-invoice]="!isEditing"></i>
+            {{ isEditing ? 'Modifier la Facture' : 'Créer la Facture' }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Liste des Factures -->
+    <section class="factures-section">
+      <div class="section-header">
+        <h3><i class="fas fa-list"></i> Liste des Factures ({{ filteredFactures.length }})</h3>
+        <div class="view-options">
+          <button class="view-btn active" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'">
+            <i class="fas fa-th-list"></i>
+          </button>
+          <button class="view-btn" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'">
+            <i class="fas fa-th-large"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="filters-section">
+        <div class="filter-group">
+          <label for="filterStatut">Filtrer par statut:</label>
+          <select id="filterStatut" [(ngModel)]="filterStatut" (change)="onFilterChange()">
+            <option value="">Tous les statuts</option>
+            <option value="brouillon">Brouillon</option>
+            <option value="envoyee">Envoyée</option>
+            <option value="partiellement-payee">Partiellement Payée</option>
+            <option value="payee">Payée</option>
+            <option value="annulee">Annulée</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filterDateDebut">Date de début:</label>
+          <input type="date" id="filterDateDebut" [(ngModel)]="filterDateDebut" (change)="onFilterChange()">
+        </div>
+        <div class="filter-group">
+          <label for="filterDateFin">Date de fin:</label>
+          <input type="date" id="filterDateFin" [(ngModel)]="filterDateFin" (change)="onFilterChange()">
+        </div>
+        <div class="filter-group">
+          <label for="filterMontantMin">Montant min:</label>
+          <input type="number" id="filterMontantMin" [(ngModel)]="filterMontantMin" placeholder="0" (input)="onFilterChange()">
+        </div>
+        <div class="filter-group">
+          <label for="filterMontantMax">Montant max:</label>
+          <input type="number" id="filterMontantMax" [(ngModel)]="filterMontantMax" placeholder="10000" (input)="onFilterChange()">
+        </div>
+      </div>
+
+      <!-- Vue Tableau -->
+      <div class="factures-table" *ngIf="viewMode === 'list'">
+        <table>
+          <thead>
+            <tr>
+              <th>N° Facture</th>
+              <th>Patient</th>
+              <th>Date</th>
+              <th>Montant</th>
+              <th>Statut</th>
+              <th>Mode Paiement</th>
+              <th>Échéance</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let facture of filteredFactures" [class]="'statut-' + facture.statut">
+              <td class="numero-cell">
+                <strong>FAC-{{ facture.numero }}</strong>
+              </td>
+              <td class="patient-cell">
+                <div class="patient-info">
+                  <strong>{{ getPatientName(facture.patientId) }}</strong>
+                  <div class="patient-cin">{{ getPatientCIN(facture.patientId) }}</div>
+                </div>
+              </td>
+              <td class="date-cell">
+                {{ facture.dateFacture | date:'dd/MM/yyyy' }}
+              </td>
+              <td class="montant-cell">
+                <div class="montant">{{ facture.montantTotal | currency:'MAD':'symbol':'1.2-2' }}</div>
+                <div class="sous-total" *ngIf="facture.remise > 0">
+                  <small>dont remise: {{ calculerMontantRemiseFacture(facture) | currency:'MAD':'symbol':'1.2-2' }}</small>
+                </div>
+              </td>
+              <td>
+                <span class="statut-badge" [class]="facture.statut">
+                  {{ getStatutText(facture.statut) }}
+                </span>
+              </td>
+              <td>
+                <span class="paiement-badge" *ngIf="facture.modePaiement">
+                  {{ getModePaiementText(facture.modePaiement) }}
+                </span>
+                <span class="no-paiement" *ngIf="!facture.modePaiement">
+                  -
+                </span>
+              </td>
+              <td class="echeance-cell" [class.retard]="isEnRetard(facture)">
+                {{ facture.dateEcheance | date:'dd/MM/yyyy' }}
+                <div class="retard-indicator" *ngIf="isEnRetard(facture)">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  En retard
+                </div>
+              </td>
+              <td class="actions-cell">
+                <button class="icon-btn view" title="Voir détails" (click)="voirDetails(facture)">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="icon-btn edit" title="Modifier" (click)="modifierFacture(facture)">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="icon-btn print" title="Imprimer" (click)="imprimerFacture(facture)">
+                  <i class="fas fa-print"></i>
+                </button>
+                <button class="icon-btn send" title="Envoyer" (click)="envoyerFacture(facture)" *ngIf="facture.statut === 'brouillon'">
+                  <i class="fas fa-paper-plane"></i>
+                </button>
+                <button class="icon-btn payment" title="Enregistrer paiement" (click)="enregistrerPaiement(facture)" *ngIf="facture.statut !== 'payee' && facture.statut !== 'annulee'">
+                  <i class="fas fa-money-bill-wave"></i>
+                </button>
+                <button class="icon-btn danger" title="Supprimer" (click)="supprimerFacture(facture)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Vue Grille -->
+      <div class="factures-grid" *ngIf="viewMode === 'grid'">
+        <div class="facture-card" *ngFor="let facture of filteredFactures" [class]="'statut-' + facture.statut">
+          <div class="card-header">
+            <div class="facture-numero">
+              <strong>FAC-{{ facture.numero }}</strong>
+            </div>
+            <div class="facture-actions">
+              <button class="icon-btn view" title="Voir détails" (click)="voirDetails(facture)">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="icon-btn danger" title="Supprimer" (click)="supprimerFacture(facture)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-patient">
+            <div class="patient-avatar-small">
+              {{ getPatientInitials(facture.patientId) }}
+            </div>
+            <div class="patient-info">
+              <h4>{{ getPatientName(facture.patientId) }}</h4>
+              <p class="cin">{{ getPatientCIN(facture.patientId) }}</p>
+            </div>
+          </div>
+
+          <div class="card-details">
+            <div class="detail-row">
+              <i class="fas fa-calendar"></i>
+              <span>{{ facture.dateFacture | date:'dd/MM/yyyy' }}</span>
+            </div>
+            <div class="detail-row">
+              <i class="fas fa-money-bill-wave"></i>
+              <span class="montant">{{ facture.montantTotal | currency:'MAD':'symbol':'1.2-2' }}</span>
+            </div>
+            <div class="detail-row" *ngIf="facture.modePaiement">
+              <i class="fas fa-credit-card"></i>
+              <span>{{ getModePaiementText(facture.modePaiement) }}</span>
+            </div>
+            <div class="detail-row" [class.retard]="isEnRetard(facture)">
+              <i class="fas fa-clock"></i>
+              <span>Échéance: {{ facture.dateEcheance | date:'dd/MM/yyyy' }}</span>
+            </div>
+          </div>
+
+          <div class="card-prestations" *ngIf="facture.prestations.length > 0">
+            <div class="prestations-count">
+              {{ facture.prestations.length }} prestation(s)
+            </div>
+            <div class="prestations-preview">
+              {{ truncateText(facture.prestations[0].description, 30) }}
+              <span *ngIf="facture.prestations.length > 1">, +{{ facture.prestations.length - 1 }} autre(s)</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="statut-section">
+              <span class="statut-badge" [class]="facture.statut">
+                {{ getStatutText(facture.statut) }}
+              </span>
+            </div>
+            <div class="actions-section">
+              <button class="icon-btn-small payment" 
+                      title="Paiement" 
+                      (click)="enregistrerPaiement(facture)"
+                      *ngIf="facture.statut !== 'payee' && facture.statut !== 'annulee'">
+                <i class="fas fa-money-bill-wave"></i>
+              </button>
+              <button class="icon-btn-small print" title="Imprimer" (click)="imprimerFacture(facture)">
+                <i class="fas fa-print"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message si aucune facture trouvée -->
+      <div class="no-factures" *ngIf="filteredFactures.length === 0">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <h4>Aucune facture trouvée</h4>
+        <p *ngIf="searchTerm || filterStatut || filterDateDebut || filterDateFin || filterMontantMin || filterMontantMax">
+          Aucune facture ne correspond à vos critères de recherche.
+        </p>
+        <p *ngIf="!searchTerm && !filterStatut && !filterDateDebut && !filterDateFin && !filterMontantMin && !filterMontantMax">
+          Aucune facture n'a été créée pour le moment.
+        </p>
+        <button class="action-btn primary" (click)="showAddForm = true; isEditing = false; resetForm()">
+          <i class="fas fa-plus"></i>
+          Créer la première facture
+        </button>
+      </div>
+    </section>
+  </div>
+</div>

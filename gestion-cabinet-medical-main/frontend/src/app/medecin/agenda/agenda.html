@@ -1,0 +1,259 @@
+<div class="agenda-container">
+  <!-- Background Animé -->
+  <div class="agenda-background">
+    <div class="floating-elements">
+      <div class="floating-icon">📅</div>
+      <div class="floating-icon">⏰</div>
+      <div class="floating-icon">👨‍⚕️</div>
+      <div class="floating-icon">💊</div>
+      <div class="floating-icon">🏥</div>
+      <div class="floating-icon">📋</div>
+    </div>
+    <div class="pulse-effect"></div>
+  </div>
+
+  <div class="agenda-content">
+    <!-- Header -->
+    <header class="agenda-header">
+      <div class="header-left">
+        <h1><i class="fas fa-calendar-alt"></i> Agenda Médical</h1>
+        <p>Gérez vos rendez-vous et votre planning</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-today" (click)="goToToday()">
+          <i class="fas fa-calendar-day"></i>
+          Aujourd'hui
+        </button>
+        <button class="btn-new-appointment" (click)="showAppointmentModal = true; selectedAppointment = null; isEditing = false">
+          <i class="fas fa-plus-circle"></i>
+          Nouveau RDV
+        </button>
+      </div>
+    </header>
+
+    <!-- Barre de Contrôle -->
+    <div class="control-bar">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input 
+          type="text" 
+          placeholder="Rechercher un patient..." 
+          [(ngModel)]="searchQuery"
+          (input)="getFilteredAppointments()"
+        >
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label><i class="fas fa-filter"></i> Type</label>
+          <select [(ngModel)]="filterType" (change)="getFilteredAppointments()">
+            <option value="all">Tous les types</option>
+            <option value="consultation">Consultation</option>
+            <option value="visite">Visite</option>
+            <option value="urgence">Urgence</option>
+            <option value="suivi">Suivi</option>
+            <option value="examen">Examen</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label><i class="fas fa-circle"></i> Statut</label>
+          <select [(ngModel)]="filterStatus" (change)="getFilteredAppointments()">
+            <option value="all">Tous les statuts</option>
+            <option value="confirmé">Confirmés</option>
+            <option value="en attente">En attente</option>
+            <option value="annulé">Annulés</option>
+            <option value="terminé">Terminés</option>
+          </select>
+        </div>
+
+        <div class="view-selector">
+          <button class="btn-view" [class.active]="currentView === 'day'" (click)="changeView('day')">
+            <i class="fas fa-calendar-day"></i> Jour
+          </button>
+          <button class="btn-view" [class.active]="currentView === 'week'" (click)="changeView('week')">
+            <i class="fas fa-calendar-week"></i> Semaine
+          </button>
+          <button class="btn-view" [class.active]="currentView === 'month'" (click)="changeView('month')">
+            <i class="fas fa-calendar"></i> Mois
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistiques Rapides -->
+    <div class="quick-stats">
+      <div class="stat-badge">
+        <div class="stat-value">{{ getTotalAppointments() }}</div>
+        <div class="stat-label">RDV total</div>
+      </div>
+      <div class="stat-badge">
+        <div class="stat-value">{{ getTodayAppointments() }}</div>
+        <div class="stat-label">Aujourd'hui</div>
+      </div>
+      <div class="stat-badge">
+        <div class="stat-value">{{ getConfirmedAppointments() }}</div>
+        <div class="stat-label">Confirmés</div>
+      </div>
+      <div class="stat-badge">
+        <div class="stat-value">{{ getPendingAppointments() }}</div>
+        <div class="stat-label">En attente</div>
+      </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="agenda-main">
+      <!-- Calendrier -->
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <h2><i class="fas fa-calendar-check"></i> Planning</h2>
+          <div class="calendar-nav">
+            <button class="btn-nav">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <span class="current-date">{{ currentDate | date:'MMMM yyyy' }}</span>
+            <button class="btn-nav">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- FullCalendar -->
+        <div class="fullcalendar-wrapper">
+          <full-calendar [options]="calendarOptions"></full-calendar>
+        </div>
+      </div>
+
+      <!-- Liste des RDV du jour -->
+      <div class="sidebar">
+        <div class="sidebar-section">
+          <h3><i class="fas fa-clock"></i> RDV d'aujourd'hui</h3>
+          <div class="today-appointments">
+            <div *ngFor="let appointment of getFilteredAppointments()" 
+                 class="appointment-card"
+                 [class]="appointment.status"
+                 (click)="selectedAppointment = appointment; showAppointmentModal = true; isEditing = true">
+              <div class="appointment-time">
+                <div class="time">{{ appointment.time | date:'HH:mm' }}</div>
+                <div class="duration">{{ appointment.duration }} min</div>
+              </div>
+              <div class="appointment-details">
+                <div class="patient-name">{{ appointment.patientName }}</div>
+                <div class="appointment-type">{{ getTypeLabel(appointment.type) }}</div>
+                <div class="appointment-status" [style.background]="getStatusColor(appointment.status)">
+                  {{ appointment.status }}
+                </div>
+              </div>
+            </div>
+            <div *ngIf="getFilteredAppointments().length === 0" class="no-appointments">
+              <i class="fas fa-calendar-times"></i>
+              <p>Aucun rendez-vous aujourd'hui</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agenda de la semaine -->
+        <div class="sidebar-section">
+          <h3><i class="fas fa-calendar-week"></i> Cette semaine</h3>
+          <div class="week-schedule">
+            <div class="week-day" *ngFor="let day of [1,2,3,4,5]">
+              <div class="day-header">
+                {{ getDayName(day) }}
+                <span class="day-date">{{ getDayDate(day) }}</span>
+              </div>
+              <div class="day-appointments">
+                <div *ngFor="let app of getAppointmentsForDay(day)" 
+                     class="mini-appointment"
+                     [style.background]="getTypeColor(app.type)">
+                  <span class="mini-time">{{ app.time | date:'HH:mm' }}</span>
+                  <span class="mini-patient">{{ app.patientName.split(' ')[0] }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de rendez-vous -->
+  <div *ngIf="showAppointmentModal" class="appointment-modal-overlay">
+    <div class="appointment-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <i class="fas fa-calendar-plus"></i>
+          {{ isEditing ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous' }}
+        </h3>
+        <button class="btn-close-modal" (click)="closeModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Patient *</label>
+          <select [ngModel]="selectedAppointment?.patientId" (ngModelChange)="selectedAppointment!.patientId = $event">
+            <option *ngFor="let patient of getPatients()" [value]="patient.id">
+              {{ patient.name }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date et heure *</label>
+            <input type="datetime-local" [ngModel]="selectedAppointment?.time" (ngModelChange)="selectedAppointment!.time = $event">
+          </div>
+          <div class="form-group">
+            <label>Durée (minutes) *</label>
+            <select [ngModel]="selectedAppointment?.duration" (ngModelChange)="selectedAppointment!.duration = $event">
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+              <option value="90">90 min</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type *</label>
+            <select [ngModel]="selectedAppointment?.type" (ngModelChange)="selectedAppointment!.type = $event">
+              <option value="consultation">Consultation</option>
+              <option value="visite">Visite</option>
+              <option value="urgence">Urgence</option>
+              <option value="suivi">Suivi</option>
+              <option value="examen">Examen</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut *</label>
+            <select [ngModel]="selectedAppointment?.status" (ngModelChange)="selectedAppointment!.status = $event">
+              <option value="en attente">En attente</option>
+              <option value="confirmé">Confirmé</option>
+              <option value="annulé">Annulé</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea [ngModel]="selectedAppointment?.notes" (ngModelChange)="selectedAppointment!.notes = $event" rows="3" placeholder="Notes additionnelles..."></textarea>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeModal()">
+          Annuler
+        </button>
+        <button *ngIf="isEditing" class="btn-delete" (click)="deleteAppointment(selectedAppointment?.id!)">
+          Supprimer
+        </button>
+        <button class="btn-save" (click)="saveAppointment(selectedAppointment!)">
+          {{ isEditing ? 'Mettre à jour' : 'Créer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
